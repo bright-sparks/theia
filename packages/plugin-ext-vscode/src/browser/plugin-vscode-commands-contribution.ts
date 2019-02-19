@@ -20,6 +20,10 @@ import { CommandService } from '@theia/core/lib/common/command';
 import TheiaURI from '@theia/core/lib/common/uri';
 import URI from 'vscode-uri';
 import { ContextKeyService } from '@theia/core/lib/browser/context-key-service';
+import { EditorManager } from '@theia/editor/lib/browser';
+import { WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webview';
+import { ApplicationShell } from '@theia/core/lib/browser';
+import { ResourceProvider } from '@theia/core';
 
 export namespace VscodeCommands {
     export const OPEN: Command = {
@@ -30,6 +34,10 @@ export namespace VscodeCommands {
     export const SET_CONTEXT: Command = {
         id: 'setContext'
     };
+
+    export const PREVIEW_HTML: Command = {
+        id: 'vscode.previewHtml'
+    };
 }
 
 @injectable()
@@ -38,6 +46,12 @@ export class PluginVscodeCommandsContribution implements CommandContribution {
     protected readonly commandService: CommandService;
     @inject(ContextKeyService)
     protected readonly contextKeyService: ContextKeyService;
+    @inject(EditorManager)
+    protected readonly editorManager: EditorManager;
+    @inject(ApplicationShell)
+    protected readonly shell: ApplicationShell;
+    @inject(ResourceProvider)
+    protected readonly resorces: ResourceProvider;
 
     registerCommands(commands: CommandRegistry): void {
         commands.registerCommand(VscodeCommands.OPEN, {
@@ -54,5 +68,30 @@ export class PluginVscodeCommandsContribution implements CommandContribution {
                 this.contextKeyService.createKey(String(contextKey), contextValue);
             }
         });
+
+        commands.registerCommand(VscodeCommands.PREVIEW_HTML, {
+            isVisible: () => true,
+            // tslint:disable-next-line: no-any
+            execute: (resource: URI, position?: any, label?: string, options?: any) => {
+                label = label || resource.fsPath;
+                const view = new WebviewWidget(label, {allowScripts: true}, {});
+                this.resorces(new TheiaURI(resource)).then(res => {
+                    res.readContents().then(str => {
+                        const html = '<!DOCTYPE html><html><head></head>' + str + '</html>';
+                        this.shell.addWidget(view, { area: 'main', mode: 'split-right' });
+                        this.shell.activateWidget(view.id);
+                        view.setHTML(html);
+                    });
+                    this.editorManager.getOrCreateByUri(new TheiaURI(resource)).then(editor => {
+                        editor.editor.onDocumentContentChanged(listener => {
+                            const html = '<!DOCTYPE html><html><head></head>' + editor.editor.document.getText() + '</html>';
+                            view.setHTML(html);
+                        });
+                    });
+                });
+                }
+            }
+        );
     }
+
 }
