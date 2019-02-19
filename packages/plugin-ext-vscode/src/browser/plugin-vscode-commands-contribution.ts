@@ -77,21 +77,24 @@ export class PluginVscodeCommandsContribution implements CommandContribution {
                 const view = new WebviewWidget(label, {allowScripts: true}, {});
                 this.resorces(new TheiaURI(resource)).then(res => {
                     res.readContents().then(str => {
-                        const html = '<!DOCTYPE html><html><head></head>' + str + '</html>';
+                        const html = this.getHtml(str);
                         this.shell.addWidget(view, { area: 'main', mode: 'split-right' });
                         this.shell.activateWidget(view.id);
                         view.setHTML(html);
                     });
-                    this.editorManager.getOrCreateByUri(new TheiaURI(resource)).then(editor => {
-                        editor.editor.onDocumentContentChanged(listener => {
-                            const html = '<!DOCTYPE html><html><head></head>' + editor.editor.document.getText() + '</html>';
-                            view.setHTML(html);
+                    this.editorManager.getOrCreateByUri(new TheiaURI(resource)).then(editorWidget => {
+                        editorWidget.editor.onDocumentContentChanged(listener => {
+                            view.setHTML(this.getHtml(editorWidget.editor.document.getText()));
                         });
                     });
                 });
                 }
             }
         );
+    }
+
+    private getHtml(body: String) {
+        return '<!DOCTYPE html><html><head></head>' + body + '</html>';
     }
 
 }
