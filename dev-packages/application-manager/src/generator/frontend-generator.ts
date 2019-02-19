@@ -126,6 +126,8 @@ const electron = require('electron');
 const { join, resolve } = require('path');
 const { isMaster } = require('cluster');
 const { fork } = require('child_process');
+const Storage = require('electron-store');
+const electronStore = new Storage();
 const { app, shell, BrowserWindow, ipcMain, Menu } = electron;
 
 const applicationName = \`${this.pck.props.frontend.config.applicationName}\`;
@@ -150,8 +152,11 @@ if (isMaster) {
             const y = Math.floor(bounds.y + (bounds.height - height) / 2);
             const x = Math.floor(bounds.x + (bounds.width - width) / 2);
 
+            const windowState = electronStore.get('windowstate', {
+                width, height, x, y
+            });
             // Always hide the window, we will show the window when it is ready to be shown in any case.
-            const newWindow = new BrowserWindow({ width, height, x, y, show: false, title: applicationName });
+            const newWindow = new BrowserWindow({ width: windowState.width, height: windowState.height, x: windowState.x, y: windowState.y, show: false, title: applicationName });
             newWindow.on('ready-to-show', () => newWindow.show());
 
             // Prevent calls to "window.open" from opening an ElectronBrowser window,
@@ -160,6 +165,19 @@ if (isMaster) {
                 event.preventDefault();
                 shell.openExternal(url);
             });
+
+            const safeState = () => {
+                const bounds = newWindow.getBounds();
+                electronStore.set('windowstate', {
+                    width: bounds.width,
+                    height: bounds.height,
+                    x: bounds.x,
+                    y: bounds.y
+                })
+            }
+            newWindow.on('close', safeState);
+            newWindow.on('resize', safeState);
+            newWindow.on('move', safeState);
 
             if (!!theUrl) {
                 newWindow.loadURL(theUrl);
