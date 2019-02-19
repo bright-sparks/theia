@@ -94,7 +94,7 @@ export class PluginVscodeCommandsContribution implements CommandContribution {
     }
 
     private getHtml(body: String) {
-        return '<!DOCTYPE html><html><head></head>' + body + '</html>';
+        return `<!DOCTYPE html><html><head></head>${body}</html>`;
     }
 
 }
